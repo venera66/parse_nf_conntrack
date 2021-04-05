@@ -9,8 +9,36 @@ import subprocess
 
 NF_FILE='./nf_conntrack'
 INTERNET_CONNECTION_TEST_ADDRESS = '1.1.1.1'
+IPINFO_URL='https://ipinfo.io/'
 
+internet_connected = False
+enriched_connections = []
 
+#---------------Function definitions----------------------#
+def check_internet_connectivity():
+    global internet_connected 
+    try:
+        ping_result = subprocess.Popen(["/bin/ping", "-c1", "-w100", INTERNET_CONNECTION_TEST_ADDRESS], stdout=subprocess.PIPE).stdout.read()
+        if ping_result:
+            internet_connected = True
+        else:
+            internet_connected = False
+    except Exception as error:
+        print("Unable to run ping: \n")
+        print(error)
+    
+def ipinfo_lookup(ipaddress):
+    #Bail on private IPs
+    if ipaddr.ip_address(ipaddress).is_private:
+        return None
+    try:
+        restresult = json.loads(get(IPINFO_URL + str(ipaddress)).text)
+        restresult.pop('ip', None)
+        restresult.pop('readme', None)
+    except Exception as error:
+        print(error)
+    
+    return restresult
 
 def parse_nf_file(input_file):
     try:
@@ -63,7 +91,6 @@ def parse_nf_file(input_file):
                 else:
                     print("Unknown protocol!")
 
-                print(str(idx) + "  :  " + connection['request']['dst'])
                 connections.append(connection)
         return connections
 
@@ -78,13 +105,19 @@ def print_results(listdict):
     except Exception as error:
         print(error)
 
-def ipinfo_lookup(ipaddress):
-    try:
-        internet_connected = ping_response = subprocess.Popen(["/bin/ping", "-c1", "-w100", INTERNET_CONNECTION_TEST_ADDRESS], stdout=subprocess.PIPE).stdout.read()
+#----------------------------------------------------------------------#
 
-    except Exception as error:
-        print(error)
+check_internet_connectivity()
+connections = parse_nf_file(NF_FILE)
 
-nat_table = parse_nf_file(NF_FILE) 
-#print(nat_table)
+if internet_connected:
+    for conn in connections:
+        conn.update({'request_src' : ipinfo_lookup(conn['request']['src'])})
+        conn.update({'request_dst' : ipinfo_lookup(conn['request']['dst'])})
+        conn.update({'response_src' : ipinfo_lookup(conn['response']['src'])})
+        conn.update({'response_dst' : ipinfo_lookup(conn['response']['dst'])})
+        enriched_connections.append(conn)
 
+    print(enriched_connections)
+else:
+    print("Failed")
