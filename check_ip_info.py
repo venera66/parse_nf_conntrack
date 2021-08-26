@@ -1,10 +1,11 @@
 #!/usr/bin/python3
-import shlex
+#import shlex
 import ipaddress as ipaddr
 import json
 from requests import get
 from types import SimpleNamespace
 import os
+import pprint as pp
 import subprocess
 
 NF_FILE='./nf_conntrack'
@@ -118,6 +119,6 @@ if internet_connected:
         conn.update({'response_dst' : ipinfo_lookup(conn['response']['dst'])})
         enriched_connections.append(conn)
 
-    print(enriched_connections)
+    pp.pprint(enriched_connections)
 else:
     print("Failed")
